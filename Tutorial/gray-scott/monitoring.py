@@ -10,7 +10,7 @@ import operator
 from operator import add
 from matplotlib.font_manager import FontProperties
 DEFAULT={
-    "graph_layout" : "individual" # or grouped
+    "graph_layout" : "individual", # or grouped
     "memory": { "graph_type" : "line" },
     "cpu": { "graph_type" : "line"},
     "io": {"graph_type" : "line"} }
@@ -77,11 +77,6 @@ def initialize_globals():
         period_values[i] = []
 
 def get_utilization(is_cpu, fr_step, vars_info, components, previous_mean, previous_count, current_period, period_values):
-    global cpu_components
-    global previous_mean
-    global previous_count
-    global current_period
-    global period_values
     for c in components:
         substr = c
         if is_cpu:
