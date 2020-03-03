@@ -194,7 +194,7 @@ def plot_line_graph(ax,x,fontsize,title,components):
     #ax.set_yscale("log")
     fontP = FontProperties()
     fontP.set_size('small')
-    ax.legend(bbox_to_anchor=(1.10, 0.5), loc="center_left", borderaxespad=0, prop=fontP)
+    ax.legend(bbox_to_anchor=(1.10, 0.5), loc="center left", borderaxespad=0, prop=fontP)
 
 
 def plot_timers(ax, x, fontsize, top5):
@@ -238,14 +238,14 @@ def plot_utilization(aregs, x, fontsize, step, top5, settings):
             holder = fig.add_subplot(gs[count,0])
             count += 1
         graph_type = settings["graphs"][key]["graph_type"]
-        func_dict[graph_type](holder, x, fontsize, key + " Utilization",components_dict[key])
+        func_dict[graph_type](holder, x, fontsize, key.capitalize() + " Utilization",components_dict[key])
         if SEP: 
-            imgfile = args.outfile+"_"+"{0:0>5}".format(step)+str(key).capitalize()+".png"
+            imgfile = args.outfile+"_"+"{0:0>5}".format(step)+str(key)+".png"
             fig.savefig(imgfile)
             plt.clf()
     if not SEP:
         plt.tick_params(axis="both", which="both", labelsize=fontsize/2)
-        imgfile = args.outfile+"_"+"{0:0>5}".format(step)+"dif2.png"
+        imgfile = args.outfile+"_"+"{0:0>5}".format(step)+".png"
         fig.savefig(imgfile)
         plt.clf()
     print("done.")
