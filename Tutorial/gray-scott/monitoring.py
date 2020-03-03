@@ -11,7 +11,7 @@ from operator import add
 from matplotlib.font_manager import FontProperties
 DEFAULT={
     "graph_layout" : "individual", # or grouped
-    "spatial_time" : "spatial", # or time
+    "spatial_time" : "time", # or spatial
     "graphs":
         { "memory": { "graph_type" : "line" },
           "cpu": { "graph_type" : "line"},
@@ -23,7 +23,6 @@ previous_mean = {}
 previous_count = {}
 current_period = {}
 period_values = {}
-spatial_values = {}
 #cpu_df = pd.DataFrame([np.zeros(len(cpu_components)), columns=cpu_components)
 #mem_components = ['Memory Footprint (VmRSS) (KB)','Peak Memory Usage Resident Set Size (VmHWM) (KB)','meminfo:MemAvailable (MB)','meminfo:MemFree (MB)','meminfo:MemTotal (MB)']
 mem_components = ['Memory Footprint (VmRSS) (KB)','Peak Memory Usage Resident Set Size (VmHWM) (KB)','program size (kB)','resident set size (kB)']
@@ -55,30 +54,27 @@ def dumperiod_valuesars(vars_info):
             print("\t" + key + ": " + value)
         print("\n")
 
-def initialize_globals(settings):
-    global cpu_components
+def initialize_globals(settings, num_ranks):
+    #if we know the number of things that we want to cut off at
+    # this while section can change
     global previous_mean
     global previous_count
     global current_period
     global period_values
-    global spatial_values 
-    for c in cpu_components:
-        previous_mean[c] = 0
-        previous_count[c] = 0
-        current_period[c] = 0
-        period_values[c] = []
-
-    for m in mem_components:
-        previous_mean[m] = 0
-        previous_count[m] = 0
-        current_period[m] = 0
-        period_values[m] = []
-
-    for i in io_components:
-        previous_mean[i] = 0
-        previous_count[i] = 0
-        current_period[i] = 0
-        period_values[i] = []
+    #this can be made per graph setting
+    if settings["spatial_time"] == "time": 
+        for c in (cpu_components+mem_components+io_components):
+            previous_mean[c] = 0
+            previous_count[c] = 0
+            current_period[c] = 0
+            period_values[c] = []
+    else:
+        for c in (cpu_components + mem_components + io_components): 
+            previous_mean[c] = np.zeros(num_ranks)
+            previous_count[c] = 0
+            current_period[c] = np.zeros(num_ranks)
+            period_values[c] = []
+        #change this to other things for the number of ranks
 
 def get_utilization(is_cpu, fr_step, vars_info, components, previous_mean, previous_count, current_period, period_values):
     for c in components:
@@ -224,26 +220,26 @@ def plot_utilization(aregs, x, fontsize, step, top5, settings):
     print("plotting", end='...', flush=True)
     count = 0
     total = len(settings["graphs"].keys())
-    SEP = True
-    if SEP:
+    SEP = settings["graph_layout"]
+    if SEP == "individual":
         fig = plt.figure()
-        gs = gridspec.GridSpec(1,1, figure=fig)
+        gs = gridspec.GridSpec(1,1, figure=fig, constrained_layout=True)
     else:
         fig = plt.figure(total, figsize=(8,8), constrained_layout=True)
         gs = gridspec.GridSpec(total, 1, figure=fig)
     for key in settings["graphs"].keys():
-        if SEP:
+        if SEP== "individual":
             holder = fig.add_subplot(gs[count,0])
         else:
             holder = fig.add_subplot(gs[count,0])
             count += 1
         graph_type = settings["graphs"][key]["graph_type"]
         func_dict[graph_type](holder, x, fontsize, key.capitalize() + " Utilization",components_dict[key])
-        if SEP: 
+        if SEP == "individual": 
             imgfile = args.outfile+"_"+"{0:0>5}".format(step)+str(key)+".png"
             fig.savefig(imgfile)
             plt.clf()
-    if not SEP:
+    if SEP == "grouped":
         plt.tick_params(axis="both", which="both", labelsize=fontsize/2)
         imgfile = args.outfile+"_"+"{0:0>5}".format(step)+".png"
         fig.savefig(imgfile)
@@ -266,7 +262,8 @@ def process_file(args):
     except IOError:
         settings = DEFAULT
         print("default settings loaded")
-    initialize_globals(settings)
+    num_ranks = int(fr[0]["num_threads"]["Shape"].split(',')[0])
+    initialize_globals(settings, num_ranks)
     cur_step = 0 
     for fr_step in fr:
         # track current step
