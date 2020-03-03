@@ -21,6 +21,7 @@ previous_mean = {}
 previous_count = {}
 current_period = {}
 period_values = {}
+spatial_values = {}
 #cpu_df = pd.DataFrame([np.zeros(len(cpu_components)), columns=cpu_components)
 #mem_components = ['Memory Footprint (VmRSS) (KB)','Peak Memory Usage Resident Set Size (VmHWM) (KB)','meminfo:MemAvailable (MB)','meminfo:MemFree (MB)','meminfo:MemTotal (MB)']
 mem_components = ['Memory Footprint (VmRSS) (KB)','Peak Memory Usage Resident Set Size (VmHWM) (KB)','program size (kB)','resident set size (kB)']
@@ -58,6 +59,7 @@ def initialize_globals():
     global previous_count
     global current_period
     global period_values
+    global spatial_values
     for c in cpu_components:
         previous_mean[c] = 0
         previous_count[c] = 0
@@ -106,7 +108,7 @@ def get_utilization(is_cpu, fr_step, vars_info, components, previous_mean, previ
 
 def get_top5_cpu(fr_step, vars_info):
     num_ranks = int(vars_info["num_threads"]["Shape"].split(',')[0])
-    num_threads = int(vars_info["num_threads"][0])
+    num_threads = fr_step.read("num_threads")[0]
     cpu_means = {}
     cpu_values = {}
     for name, info in vars_info.items():
@@ -128,40 +130,7 @@ def get_top5_cpu(fr_step, vars_info):
             cpu_means[shortname] = np.sum(cpu_values[name_split[0]]) / num_ranks
     limit = 0
     others = len(timer_means)-5
-def get_top5(fr_step, vars_info):
-    num_ranks = 16
-    num_threads = int(vars_info["num_threads"]["Max"])
-    timer_means = {}
-    timer_values = {}
-    for name, info in vars_info.items():
-        if ".TAU application" in name:
-            continue
-        if "addr=" in name:
-            continue
-        if "Exclusive TIME" in name:
-            shape_str = vars_info[name]["Shape"].split(',')
-            shape = list(map(int,shape_str))
-            mean_values = fr_step.read(name)
-            #print("mean_values")
-            #print(mean_values)
-            shortname = name.replace(" / Exclusive TIME", "")
-            timer_values[shortname] = []
-            timer_values[shortname].append(mean_values[0])
-            index = num_threads
-            while index < shape[0]:
-                timer_values[shortname].append(mean_values[index])
-                index = index + num_threads
-            timer_means[shortname] = np.sum(timer_values[shortname]) / num_ranks   
-    limit = 0
-    others = len(timer_means) - 5
-    timer_values["other"] = [0] * num_ranks
-    for key, value in sorted(timer_means.items(), key=lambda kv: kv[1]):
-        limit = limit + 1
-        if limit <= others:
-            timer_values["other"] = list( map(add, timer_values["other"], timer_values[key]) )
-            del timer_values[key]
-    #print(timer_values)
-    return timer_values
+
 #plot stacked bar chart
 #potentially replace x with a df
 def plot_stacked_bar(ax, x, fontsize, title, components):
@@ -232,7 +201,8 @@ def plot_timers(ax, x, fontsize, top5):
     fontP = FontProperties()
     fontP.set_size('small')
     ax.legend(bbox_to_anchor=(1.10,0.5), loc="center left", borderaxespad=0, prop=fontP)
-
+#this was left in for easy testing purposes of plot_utilization to make sure they matched
+# if plot_utilization works in every case there is no need for this
 def plot_utilization_two(args, x, fontsize, step, top5, func_dict, data):
     #this is all of them together
     print("plotting", end='...', flush=True)
@@ -337,7 +307,7 @@ def process_file(args):
         get_utilization(True, fr_step, vars_info, cpu_components, previous_mean, previous_count, current_period, period_values)
         get_utilization(False, fr_step, vars_info, mem_components, previous_mean, previous_count, current_period, period_values)
         get_utilization(False, fr_step, vars_info, io_components, previous_mean, previous_count, current_period, period_values)
-        top5 = get_top5(fr_step, vars_info)
+        top5 = get_top5_cpu(fr_step, vars_info)
 
         x=range(0,cur_step+1)
         plot_utilization(args, x, fontsize, cur_step, top5)
