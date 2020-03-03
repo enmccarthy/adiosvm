@@ -11,6 +11,7 @@ from operator import add
 from matplotlib.font_manager import FontProperties
 DEFAULT={
     "graph_layout" : "individual", # or grouped
+    "spatial_time" : "spatial" # or time
     "memory": { "graph_type" : "line" },
     "cpu": { "graph_type" : "line"},
     "io": {"graph_type" : "line"} }
@@ -59,7 +60,7 @@ def initialize_globals():
     global previous_count
     global current_period
     global period_values
-    global spatial_values
+    global spatial_values 
     for c in cpu_components:
         previous_mean[c] = 0
         previous_count[c] = 0
@@ -242,7 +243,7 @@ def plot_utilization_two(args, x, fontsize, step, top5, func_dict, data):
 
     plt.clf()
     print("done.") 
-def plot_utilization(aregs, x, fontsize, step, top5):
+def plot_utilization(aregs, x, fontsize, step, top5, settings):
     func_dict = {"line" : plot_line_graph,
                  "bar"  : plot_bar_chart,
                  "stacked" : plot_stacked_bar}
@@ -250,16 +251,9 @@ def plot_utilization(aregs, x, fontsize, step, top5):
                         "io"  : io_components,
                         "memory" : mem_components}
     
-    try:
-        with open("monitor_config.JSON") as config_file:
-            data = json.load(config_file)
-            print("custom settings loaded")
-    except IOError:
-        data = DEFAULT
-        print("default settings loaded")
     print("plotting", end='...', flush=True)
     count = 0
-    total = len(data.keys())
+    total = len(settings.keys())
     SEP = True
     if SEP:
         fig = plt.figure()
@@ -267,13 +261,13 @@ def plot_utilization(aregs, x, fontsize, step, top5):
     else:
         fig = plt.figure(total, figsize=(8,8), constrained_layout=True)
         gs = gridspec.GridSpec(total, 1, figure=fig)
-    for key in data.keys():
+    for key in settings.keys():
         if SEP:
             holder = fig.add_subplot(gs[count,0])
         else:
             holder = fig.add_subplot(gs[count,0])
             count += 1
-        graph_type = data[key]["graph_type"]
+        graph_type = settings[key]["graph_type"]
         func_dict[graph_type](holder, x, fontsize, key + " Utilization",components_dict[key])
         if SEP: 
             imgfile = args.outfile+"_"+"{0:0>5}".format(step)+str(key).capitalize()+".png"
@@ -295,7 +289,14 @@ def process_file(args):
     else:
         fr = adios2.open(filename, "r", "adios2.xml", "TAUProfileOutput")
     #num_threads = fr[0].available_variables()["num_threads"]["max"]
-    initialize_globals()
+    try:
+        with open("monitor_config.JSON") as config_file:
+            settings = json.load(config_file)
+            print("custom settings loaded")
+    except IOError:
+        settings = DEFAULT
+        print("default settings loaded")
+    initialize_globals(settings)
     cur_step = 0 
     for fr_step in fr:
         # track current step
@@ -310,7 +311,7 @@ def process_file(args):
         top5 = get_top5_cpu(fr_step, vars_info)
 
         x=range(0,cur_step+1)
-        plot_utilization(args, x, fontsize, cur_step, top5)
+        plot_utilization(args, x, fontsize, cur_step, top5, settings)
 
 if __name__ == '__main__':
     args = SetupArgs()
